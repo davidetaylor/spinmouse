@@ -1,0 +1,9 @@
+name: spinmouse
+dependencies:
+  - python=3.8
+  - numpy
+  - matplotlib
+  - pillow
+  - pip
+  - pip:
+    - keyboard
