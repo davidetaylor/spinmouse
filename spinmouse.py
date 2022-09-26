@@ -30,8 +30,12 @@ def save_images(acquisition_complete_event, file_name, images_queue):
         result = True
 
         # open AVI with unique filename
-        frame_size = (336, 300)
-        video_recorder = cv2.VideoWriter(file_name+"001.avi", cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc('M','J','P','G'), 100.0, frame_size, 0)
+        frame_size = (244, 244) # TODO: don't have this be hard coded
+        video_recorder = cv2.VideoWriter(file_name+".avi", cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc('M','J','P','G'), 100.0, frame_size, 0)
+
+        # open log csv
+        logfile = open(file_name + '_timestamps.csv', 'w', newline='')
+        log_writer = csv.writer(logfile)
 
         # Construct and save AVI video
         print('Appending images to AVI file')
@@ -41,7 +45,12 @@ def save_images(acquisition_complete_event, file_name, images_queue):
                 # new_image = images_queue.get(block=False)
                 new_image = images_queue.popleft()
                 start_time = time.time()
-                video_recorder.write(new_image.GetNDArray())
+                video_recorder.write(new_image.GetNDArray().T)
+
+                # append frame chunk data to log csv
+                frame_id, timestamp = get_id_timestamp_from_chunk_data(new_image)
+                log_writer.writerow((frame_id, timestamp))
+
                 print("It took", time.time() - start_time, "to to save frame")
                 print('Image appended')
             # except queue.Empty:
@@ -51,6 +60,9 @@ def save_images(acquisition_complete_event, file_name, images_queue):
                 print('Consumer: got nothing, waiting a while...')
                 time.sleep(0.5)
                 continue
+
+        # Close log file
+        logfile.close()
 
         # Close AVI file
         video_recorder.release()
@@ -328,40 +340,6 @@ def get_id_timestamp_from_chunk_data(image):
     return frame_id, timestamp
 
 
-def print_device_info(nodemap):
-    """
-    This function prints the device information of the camera from the transport
-    layer; please see NodeMapInfo example for more in-depth comments on printing
-    device information from the nodemap.
-
-    :param nodemap: Transport layer device nodemap.
-    :type nodemap: INodeMap
-    :return: True if successful, False otherwise.
-    :rtype: bool
-    """
-
-    print('\n*** DEVICE INFORMATION ***\n')
-
-    try:
-        result = True
-        node_device_information = PySpin.CCategoryPtr(nodemap.GetNode('DeviceInformation'))
-
-        if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
-            features = node_device_information.GetFeatures()
-            for feature in features:
-                node_feature = PySpin.CValuePtr(feature)
-                print('%s: %s' % (node_feature.GetName(),
-                                  node_feature.ToString() if PySpin.IsReadable(node_feature) else 'Node not readable'))
-        else:
-            print('Device control information not available.')
-    except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
-        result = False
-
-    return result
-
-
-
 
 def disable_chunk_data(nodemap):
     """
@@ -497,9 +475,9 @@ def run_single_camera(cam,file_name):
         # Retrieve GenICam nodemap
         nodemap = cam.GetNodeMap()
 
-        # # Configure chunk data
-        # if configure_chunk_data(nodemap) is False:
-        #     return False
+        # Configure chunk data
+        if configure_chunk_data(nodemap) is False:
+            return False
 
         # Create infinitely large image buffer queue
         # images_queue = queue.Queue(maxsize=0)
@@ -516,9 +494,9 @@ def run_single_camera(cam,file_name):
         acquire_images_thread.join()
         save_images_thread.join()
 
-        # # Disable chunk data
-        # if disable_chunk_data(nodemap) is False:
-        #     return False
+        # Disable chunk data
+        if disable_chunk_data(nodemap) is False:
+            return False
 
         # Deinitialize camera
         cam.DeInit()
