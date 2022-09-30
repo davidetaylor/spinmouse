@@ -38,22 +38,30 @@ class FrameCounter():
         print(f"Acquired: {acquired}  |  Buffered: {buffered}  |  Dropped: {dropped}")
 
 
-def save_images(acquisition_complete_event, file_name, images_queue):
+def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
     """
-    This function prepares, saves, and cleans up an AVI video from a vector of images.
-    Uses OpenCV + FFMPEG to save video
+    This function prepares, saves, and cleans up an AVI video from a deque of images,
+    saves timestamp data to CSV, and tracks acquired/buffered/dropped frames.
 
-    :param images: List of images to save to an AVI video.
-    :type images: list of ImagePtr
-    :return: True if successful, False otherwise.
-    :rtype: bool
+    Uses OpenCV + FFMPEG to save video.
+    
+    :param stop_event (type: threading.Event): Thread safe boolean to signal acquisition stop
+    :param nodemap (type: INodeMap): Device nodemap.
+    :param file_name (type: Str): Base experiment file name
+    :param images_queue (type: collections.deque of ImagePtr): Thread safe buffer for image data
+
+    :return (type: bool): True if successful, False otherwise.
     """
 
     try:
         result = True
 
+        # get image height/width
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
+
         # open AVI with unique filename
-        frame_size = (244, 244) # TODO: don't have this be hard coded
+        frame_size = (node_width, node_height)
         video_recorder = cv2.VideoWriter(file_name+".avi", cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc('M','J','P','G'), 100.0, frame_size, 0)
 
         # open log csv
@@ -169,13 +177,14 @@ def save_images(acquisition_complete_event, file_name, images_queue):
 
 def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
     """
+    
+    
+    :param cam (type: CameraPtr): Camera to acquire images from.
+    :param nodemap (type: INodeMap): Device nodemap.
+    :param stop_event (type: threading.Event): Thread safe boolean to signal acquisition stop
+    :param images_queue (type: collections.deque of ImagePtr): Thread safe buffer for image data
 
-    :param cam: Camera to acquire images from.
-    :param nodemap: Device nodemap.
-    :type cam: CameraPtr
-    :type nodemap: INodeMap
-    :return: True if successful, False otherwise.
-    :rtype: bool
+    :return (type: bool): True if successful, False otherwise.
     """
 
     frames_acquired = 0
@@ -495,7 +504,7 @@ def run_single_camera(cam,file_name):
         # Initialize camera
         cam.Init()
 
-        # Retrieve GenICam nodemap
+        # Retrieve GenICam nodemap (take care - some of these nodes are mutable and can change camera function)
         nodemap = cam.GetNodeMap()
 
         # TODO: Setup GUI for adjusting roi, setting filename, etc. All parameter adjustments done here. Software frame triggers
@@ -513,7 +522,7 @@ def run_single_camera(cam,file_name):
 
         # Create threads for acquiring and saving images
         acquire_images_thread = threading.Thread(target=acquire_images, args=[acquisition_complete_event, cam, nodemap, images_queue])
-        save_images_thread = threading.Thread(target=save_images, args=[acquisition_complete_event, file_name, images_queue])
+        save_images_thread = threading.Thread(target=save_images, args=[acquisition_complete_event, file_name, images_queue, nodemap])
         acquire_images_thread.start()
         save_images_thread.start()
         acquire_images_thread.join()
@@ -536,28 +545,27 @@ def run_single_camera(cam,file_name):
 
 def main():
     """
-    Example entry point; please see Enumeration example for more in-depth
-    comments on preparing and cleaning up the system.
+    Entry point; preps and cleans up the system.
 
     :return: True if successful, False otherwise.
     :rtype: bool
     """
+    result = True
 
+    # TODO: move this to Setup GUI
+    # set filename
     file_name = input("Enter filename (e.g., YYYYMMDD_##_IDNum): ")
     file_name = file_name + "_BodyCam"
     
-    result = True
-
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
 
     # Retrieve list of cameras from the system
     cam_list = system.GetCameras()
-
     num_cameras = cam_list.GetSize()
-
     print('Number of cameras detected:', num_cameras)
 
+    # TODO: Add something to setup GUI to select from multiple cameras? Or separate GUI?
     # Finish if there are no cameras
     if num_cameras == 0:
         # Clear camera list before releasing system
