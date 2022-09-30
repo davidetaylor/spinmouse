@@ -6,13 +6,36 @@ import csv
 import time
 import keyboard
 import threading
-import queue
 from collections import deque
 import cv2
 import numpy as np
 
 
 AVI_SAVE_FRAME_RATE = 100 # this only affects the frame rate of the video, not the acquisition
+
+class FrameCounter():
+    def __init__(self):
+        self.acquired = 0
+        self.buffered = 0
+        self.dropped = 0
+
+        self.last_frameid = None
+
+    def update(self, queue_len: int, frameid: int):
+        self.acquired += 1
+        self.buffered = queue_len
+        
+        if self.last_frameid == None:
+            self.last_frameid = frameid
+        else:
+            self.dropped += frameid - self.last_frameid - 1
+            self.last_frameid = frameid
+
+    def print(self):
+        acquired = str(self.acquired).rjust(12, ' ')
+        buffered = str(self.buffered).rjust(12, ' ')
+        dropped = str(self.dropped).rjust(12, ' ')
+        print(f"Acquired: {acquired}  |  Buffered: {buffered}  |  Dropped: {dropped}")
 
 
 def save_images(acquisition_complete_event, file_name, images_queue):
@@ -37,29 +60,29 @@ def save_images(acquisition_complete_event, file_name, images_queue):
         logfile = open(file_name + '_timestamps.csv', 'w', newline='')
         log_writer = csv.writer(logfile)
 
-        # Construct and save AVI video
-        print('Appending images to AVI file')
+        # Initialize frame counter
+        frame_counter = FrameCounter()
 
+        # Video/timestamp saving loop
         while True:
-            try:
-                # new_image = images_queue.get(block=False)
+            if len(images_queue) > 0:
                 new_image = images_queue.popleft()
-                start_time = time.time()
                 video_recorder.write(new_image.GetNDArray().T)
 
                 # append frame chunk data to log csv
                 frame_id, timestamp = get_id_timestamp_from_chunk_data(new_image)
                 log_writer.writerow((frame_id, timestamp))
 
-                print("It took", time.time() - start_time, "to to save frame")
-                print('Image appended')
-            # except queue.Empty:
-            except IndexError:
+                # update frame counter and print
+                frame_counter.update(len(images_queue), frame_id)
+                frame_counter.print()
+
+            else:
                 if acquisition_complete_event.is_set():
                     break
-                print('Consumer: got nothing, waiting a while...')
-                time.sleep(0.5)
-                continue
+                else:
+                    time.sleep(0.01)
+
 
         # Close log file
         logfile.close()
@@ -474,6 +497,8 @@ def run_single_camera(cam,file_name):
 
         # Retrieve GenICam nodemap
         nodemap = cam.GetNodeMap()
+
+        # TODO: Setup GUI for adjusting roi, setting filename, etc. All parameter adjustments done here. Software frame triggers
 
         # Configure chunk data
         if configure_chunk_data(nodemap) is False:
