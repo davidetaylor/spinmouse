@@ -14,6 +14,9 @@ import numpy as np
 AVI_SAVE_FRAME_RATE = 100 # this only affects the frame rate of the video, not the acquisition
 
 class FrameCounter():
+    """
+    This class tracks acquired, buffered, and dropped frames.
+    """
     def __init__(self):
         self.acquired = 0
         self.buffered = 0
@@ -21,6 +24,7 @@ class FrameCounter():
 
         self.last_frameid = None
 
+    # Call this method each time a frame is saved
     def update(self, queue_len: int, frameid: int):
         self.acquired += 1
         self.buffered = queue_len
@@ -31,6 +35,7 @@ class FrameCounter():
             self.dropped += frameid - self.last_frameid - 1
             self.last_frameid = frameid
 
+    # Call this method to display the current counter values
     def print(self):
         acquired = str(self.acquired).rjust(12, ' ')
         buffered = str(self.buffered).rjust(12, ' ')
@@ -57,8 +62,10 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
         result = True
 
         # get image height/width
-        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height'))
-        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width'))
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height')).GetValue()
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width')).GetValue()
+        print(node_height)
+        print(node_width)
 
         # open AVI with unique filename
         frame_size = (node_width, node_height)
@@ -91,7 +98,6 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
                 else:
                     time.sleep(0.01)
 
-
         # Close log file
         logfile.close()
 
@@ -103,76 +109,6 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
         return False
 
     return result
-
-# def save_images(acquisition_complete_event, file_name, images_queue):
-#     """
-#     This function prepares, saves, and cleans up an AVI video from a vector of images.
-#     Uses Spinnaker SpinVideo to save video
-
-#     :param images: List of images to save to an AVI video.
-#     :type images: list of ImagePtr
-#     :return: True if successful, False otherwise.
-#     :rtype: bool
-#     """
-
-#     try:
-#         result = True
-
-#         avi_filename = file_name
-#         framerate_to_set = AVI_SAVE_FRAME_RATE
-
-#         # open AVI with unique filename
-
-#         avi_recorder = PySpin.SpinVideo()
-
-#         option = PySpin.H264Option()
-#         option.frameRate = framerate_to_set
-#         option.bitrate = 1000000
-#         option.height = 300
-#         option.width = 336
-
-#         option = PySpin.MJPGOption()
-#         option.frameRate = framerate_to_set
-#         option.quality = 75
-#         option.height = 300
-#         option.width = 336 
-
-#         avi_recorder.Open(avi_filename, option)
-
-#         # Construct and save AVI video
-#         print('Appending images to AVI file')
-
-#         while True:
-#             try:
-
-#                 # new_image = images_queue.get(block=False)
-#                 new_image = images_queue.popleft()
-#                 start_time = time.time()
-#                 avi_recorder.Append(new_image)
-#                 print("It took", time.time() - start_time, "to to save frame")
-#                 print('Image appended')
-#             # except queue.Empty:
-#             except IndexError:
-#                 if acquisition_complete_event.is_set():
-#                     break
-#                 print('Consumer: got nothing, waiting a while...')
-#                 time.sleep(0.5)
-#                 continue
-
-
-
-#         # Close AVI file
-#         avi_recorder.Close()
-#         print('Video saved at %s.avi' % avi_filename)
-
-#     except PySpin.SpinnakerException as ex:
-#         print('Error: %s' % ex)
-#         return False
-
-#     return result
-
-
-
 
 
 def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
@@ -269,6 +205,11 @@ def configure_chunk_data(nodemap):
         print('\n*** CONFIGURING CHUNK DATA ***\n')
 
         # Activate chunk mode
+        #
+        # *** NOTES ***
+        # Once enabled, chunk data will be available at the end of the payload
+        # of every image captured until it is disabled. Chunk data can also be
+        # retrieved from the nodemap.
         chunk_mode_active = PySpin.CBooleanPtr(nodemap.GetNode('ChunkModeActive'))
 
         if PySpin.IsAvailable(chunk_mode_active) and PySpin.IsWritable(chunk_mode_active):
@@ -304,7 +245,7 @@ def configure_chunk_data(nodemap):
         # transform all of our collected INodes into CEnumEntryPtrs at once.
         entries = [PySpin.CEnumEntryPtr(chunk_selector_entry) for chunk_selector_entry in chunk_selector.GetEntries()]
 
-##        print('Enabling entries...')
+        print('Enabling entries...')
 
         # Iterate through our list and select each entry node to enable
         for chunk_selector_entry in entries:
@@ -327,11 +268,10 @@ def configure_chunk_data(nodemap):
                 print('{} enabled'.format(chunk_str))
             elif PySpin.IsWritable(chunk_enable):
                 chunk_enable.SetValue(True)
-##                print('{} enabled'.format(chunk_str))
+                print('{} enabled'.format(chunk_str))
             else:
                 print('{} not writable'.format(chunk_str))
                 result = False
-        
 
     except PySpin.SpinnakerException as ex:
         print('Error: %s' % ex)
@@ -402,7 +342,7 @@ def disable_chunk_data(nodemap):
         # transform all of our collected INodes into CEnumEntryPtrs at once.
         entries = [PySpin.CEnumEntryPtr(chunk_selector_entry) for chunk_selector_entry in chunk_selector.GetEntries()]
 
-##        print('Disabling entries...')
+        print('Disabling entries...')
 
         for chunk_selector_entry in entries:
             # Go to next node if problem occurs
@@ -424,7 +364,7 @@ def disable_chunk_data(nodemap):
                 print('{} disabled'.format(chunk_symbolic_form))
             elif PySpin.IsWritable(chunk_enable):
                 chunk_enable.SetValue(False)
-##                print('{} disabled'.format(chunk_symbolic_form))
+                print('{} disabled'.format(chunk_symbolic_form))
             else:
                 print('{} not writable'.format(chunk_symbolic_form))
 
