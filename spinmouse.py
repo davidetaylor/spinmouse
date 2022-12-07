@@ -90,7 +90,9 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
 
                 # update frame counter and print
                 frame_counter.update(len(images_queue), frame_id)
-                frame_counter.print()
+
+                if frame_counter.acquired % 100 == 0:
+                    frame_counter.print()
 
             else:
                 if acquisition_complete_event.is_set():
@@ -150,7 +152,7 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
 
                 else:
                     #  Print image information; hieght and width recorded in pixels
-                    print('Grabbed Image')
+                    # print('Grabbed Image')
 
                     #  Convert image to mono 8 and append to list
                     # images_queue.put(image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR))
@@ -158,7 +160,7 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
                     
                     #  Release image
                     image_result.Release()
-                    print('')
+                    # print('')
 
                     frames_acquired += 1
 
