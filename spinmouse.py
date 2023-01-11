@@ -82,7 +82,7 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
         while True:
             if len(images_queue) > 0:
                 new_image = images_queue.popleft()
-                video_recorder.write(new_image.GetNDArray().T)
+                video_recorder.write(new_image.GetNDArray())
 
                 # append frame chunk data to log csv
                 frame_id, timestamp = get_id_timestamp_from_chunk_data(new_image)
