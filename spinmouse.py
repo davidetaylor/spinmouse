@@ -9,6 +9,7 @@ import threading
 from collections import deque
 import cv2
 import numpy as np
+from datetime import date
 
 
 AVI_SAVE_FRAME_RATE = 100 # this only affects the frame rate of the video, not the acquisition
@@ -494,10 +495,15 @@ def main():
     """
     result = True
 
-    # TODO: move this to Setup GUI
-    # set filename
-    file_name = input("Enter filename (e.g., YYYYMMDD_##_IDNum): ")
-    file_name = file_name + "_BodyCam"
+    # Get base session name
+    keyboard.write("{date}_01_".format(date = date.today().strftime("%Y%m%d")))
+    session_name = input("Enter filename (e.g., 20230217_01_DT000): ")
+
+    # Get camera function
+    keyboard.write("BodyCam")
+    camera_function_name = input("What is being recorded? (this will be appended to name): ")
+
+    file_name = session_name + "_" + camera_function_name
     
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
