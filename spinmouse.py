@@ -117,7 +117,6 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
 def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
     """
     
-    
     :param cam (type: CameraPtr): Camera to acquire images from.
     :param nodemap (type: INodeMap): Device nodemap.
     :param stop_event (type: threading.Event): Thread safe boolean to signal acquisition stop
@@ -132,36 +131,21 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
     try:
         result = True
 
-        #  Begin acquiring images
         cam.BeginAcquisition()
 
-        print('Acquiring images...')
-
-        images = list()
-
-        # Retrieve, convert, and save images
+        # main acquisition loop
         while True:
-        # for i in range(NUM_IMAGES):
-
             try:
-                #  Retrieve next received image
                 image_result = cam.GetNextImage(1000)
 
-                #  Ensure image completion
                 if image_result.IsIncomplete():
                     print('Image incomplete with image status %d...' % image_result.GetImageStatus())
 
                 else:
-                    #  Print image information; hieght and width recorded in pixels
-                    # print('Grabbed Image')
-
-                    #  Convert image to mono 8 and append to list
-                    # images_queue.put(image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR))
+                    # put images in threadsafe collection
                     images_queue.append(image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR))
                     
-                    #  Release image
                     image_result.Release()
-                    # print('')
 
                     frames_acquired += 1
 
@@ -175,7 +159,6 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
                 acquisition_complete_event.set()
                 break
 
-        # End acquisition
         cam.EndAcquisition()
 
     except PySpin.SpinnakerException as ex:
@@ -183,12 +166,6 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
         result = False
 
     return result
-
-
-
-
-
-
 
 
 def configure_chunk_data(nodemap):
