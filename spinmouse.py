@@ -14,6 +14,15 @@ from datetime import date
 
 AVI_SAVE_FRAME_RATE = 100 # this only affects the frame rate of the video, not the acquisition
 
+class waitAnimation():
+    def __init__(self, message):
+        self.message = message
+        self.animation = "|/-\\"
+        self.idx = 0
+    def print(self):
+        print(self.message + " {}".format(self.animation[self.idx % len(self.animation)]), end="\r")
+        self.idx += 1
+
 class FrameCounter():
     """
     This class tracks acquired, buffered, and dropped frames.
@@ -125,6 +134,8 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
     :return (type: bool): True if successful, False otherwise.
     """
 
+    acquisition_message = waitAnimation("Acquiring: waiting for images...(press 'p' to end)")
+
     frames_acquired = 0
     
     print('*** IMAGE ACQUISITION ***\n')
@@ -136,7 +147,7 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
         # main acquisition loop
         while True:
             try:
-                image_result = cam.GetNextImage(1000)
+                image_result = cam.GetNextImage(100)
 
                 if image_result.IsIncomplete():
                     print('Image incomplete with image status %d...' % image_result.GetImageStatus())
@@ -149,9 +160,8 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
 
                     frames_acquired += 1
 
-            except PySpin.SpinnakerException as ex:
-                print('Error: %s' % ex)
-                result = False
+            except:
+                acquisition_message.print()
 
             if keyboard.is_pressed("p"):
                 print("You pressed p")
