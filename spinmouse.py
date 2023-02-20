@@ -14,7 +14,7 @@ import tomlkit
 
 class configFile:
     def __init__(self, root_dir):
-        self.config_path = os.path.join(root_dir, "spinmouse_config.toml")
+        self.config_path = os.path.join(os.path.dirname(root_dir), "spinmouse_config.toml")
 
         if os.path.isfile(self.config_path):
             self._load_config_file()
@@ -30,7 +30,7 @@ class configFile:
         print("")
 
     def _create_config_file(self):
-        data_path = os.path.join(os.path.dirname(self.config_path), "data")
+        data_path = os.path.join(os.path.dirname(self.config_path), "video_data")
 
         doc = tomlkit.document()
         doc.add(
@@ -555,8 +555,11 @@ def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     config = configFile(root_dir)
 
+    # Check data save location
+    print("Save location: {path}".format(path=config.parameters['save_path']))
     if not os.path.exists(config.parameters['save_path']):
-        os.makedirs(config.parameters['save_path'])
+        print("Save location does not exist. Please create folder or edit spinmouse_config.toml")
+        return False
 
     # Get base session name
     keyboard.write("{date}_01_".format(date=date.today().strftime("%Y%m%d")))
@@ -564,9 +567,13 @@ def main():
 
     # Get camera function
     keyboard.write(config.parameters["default_filename_suffix"])
-    camera_function_name = input("Filename suffix (e.g., 'BodyCam'): ")
+    filename_suffix = input("Filename suffix (e.g., 'BodyCam'): ")
 
-    file_name = session_name + "_" + camera_function_name
+    if len(filename_suffix) == 0:
+        file_name = session_name
+    else:
+        file_name = session_name + "_" + filename_suffix
+        
     file_name = os.path.join(config.parameters["save_path"], file_name)
 
     # Retrieve singleton reference to system object
