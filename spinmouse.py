@@ -15,13 +15,13 @@ import tomlkit
 class configFile:
     def __init__(self, root_dir):
         self.config_path = os.path.join(os.path.dirname(root_dir), "spinmouse_config.toml")
+        self.config_file_created = False
 
         if os.path.isfile(self.config_path):
             self._load_config_file()
         else:
             print("'spinmouse_config.toml' not found")
             self._create_config_file()
-            self._load_config_file()
 
     def _load_config_file(self):
         print(f"Loading 'spinmouse_config.toml' from {self.config_path}")
@@ -52,6 +52,7 @@ class configFile:
             fp.write(tomlkit.dumps(doc))
 
         print(f"Config file created at {self.config_path}")
+        self.config_file_created = True
 
 
 class waitAnimation:
@@ -555,10 +556,17 @@ def main():
     root_dir = os.path.dirname(os.path.abspath(__file__))
     config = configFile(root_dir)
 
+    if config.config_file_created is True:
+        print("Update spinmouse_config.toml and restart")
+        input("Press Enter to exit...")
+        return False
+
+
     # Check data save location
     print("Save location: {path}".format(path=config.parameters['save_path']))
     if not os.path.exists(config.parameters['save_path']):
         print("Save location does not exist. Please create folder or edit spinmouse_config.toml")
+        input("Press Enter to exit...")
         return False
 
     # Get base session name
@@ -573,7 +581,7 @@ def main():
         file_name = session_name
     else:
         file_name = session_name + "_" + filename_suffix
-        
+
     file_name = os.path.join(config.parameters["save_path"], file_name)
 
     # Retrieve singleton reference to system object
