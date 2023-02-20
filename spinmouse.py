@@ -8,20 +8,59 @@ import keyboard
 import threading
 from collections import deque
 import cv2
-import numpy as np
 from datetime import date
+import tomlkit
 
 
-AVI_SAVE_FRAME_RATE = 100 # this only affects the frame rate of the video, not the acquisition
+class configFile():
+    def __init__(self, root_dir):
+        self.config_path = os.path.join(root_dir, "spinmouse_config.toml")
+
+        if os.path.isfile(self.config_path):
+            self._load_config_file()
+        else:
+            print("'spinmouse_config.toml' not found")
+            self._create_config_file()
+            self._load_config_file()
+
+    def _load_config_file(self):
+        print(f"Loading 'spinmouse_config.toml' from {self.config_path}")
+        with open(self.config_path, mode="r") as fp:
+            self.parameters = tomlkit.load(fp)['parameters']
+        print('')
+
+    def _create_config_file(self):
+
+        data_path = os.path.join(os.path.dirname(self.config_path), 'data')
+
+        doc = tomlkit.document()
+        doc.add(tomlkit.comment("Spinmouse parameters. If deleted, this file will re-generate with defaults"))
+        doc.add(tomlkit.nl())
+
+        parameters = tomlkit.table()
+        parameters.add("save_path", tomlkit.string(data_path, literal=True))
+        parameters.add("video_save_framerate", 100)
+        parameters['video_save_framerate'].comment("this does not affect acquisition")
+        parameters.add("default_filename_suffix", tomlkit.string('', literal=True))
+
+        doc.add("parameters", parameters)
+
+        with open(self.config_path, mode="w") as fp:
+            fp.write(tomlkit.dumps(doc))
+
+        print(f"Config file created at {self.config_path}")
+
 
 class waitAnimation():
     def __init__(self, message):
         self.message = message
         self.animation = "|/-\\"
         self.idx = 0
+
     def print(self):
         print(self.message + " {}".format(self.animation[self.idx % len(self.animation)]), end="\r")
         self.idx += 1
+
 
 class FrameCounter():
     """
@@ -38,7 +77,7 @@ class FrameCounter():
     def update(self, queue_len: int, frameid: int):
         self.acquired += 1
         self.buffered = queue_len
-        
+
         if self.last_frameid == None:
             self.last_frameid = frameid
         else:
@@ -79,7 +118,7 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
 
         # open AVI with unique filename
         frame_size = (node_width, node_height)
-        video_recorder = cv2.VideoWriter(file_name+".avi", cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc('M','J','P','G'), 100.0, frame_size, 0)
+        video_recorder = cv2.VideoWriter(file_name+".avi", cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc('M','J','P','G'), config.parameters['video_save_framerate'], frame_size, 0)
 
         # open log csv
         logfile = open(file_name + '_timestamps.csv', 'w', newline='')
@@ -482,15 +521,21 @@ def main():
     """
     result = True
 
+    # Load spinmouse_config.toml
+    print('')
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    config = configFile(root_dir)
+
     # Get base session name
     keyboard.write("{date}_01_".format(date = date.today().strftime("%Y%m%d")))
     session_name = input("Enter filename (e.g., 20230217_01_DT000): ")
 
     # Get camera function
-    keyboard.write("BodyCam")
+    keyboard.write(config.parameters['default_filename_suffix'])
     camera_function_name = input("What is being recorded? (this will be appended to name): ")
 
     file_name = session_name + "_" + camera_function_name
+    file_name = os.path.join(config.parameters['save_path'], file_name)
     
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
