@@ -9,3 +9,4 @@ dependencies:
     - pillow==9.2.0
     - keyboard==0.13.5
     - pyinstaller==5.6.2
+    - tomlkit==0.11.6
