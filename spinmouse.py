@@ -12,7 +12,7 @@ from datetime import date
 import tomlkit
 
 
-class configFile():
+class configFile:
     def __init__(self, root_dir):
         self.config_path = os.path.join(root_dir, "spinmouse_config.toml")
 
@@ -26,22 +26,25 @@ class configFile():
     def _load_config_file(self):
         print(f"Loading 'spinmouse_config.toml' from {self.config_path}")
         with open(self.config_path, mode="r") as fp:
-            self.parameters = tomlkit.load(fp)['parameters']
-        print('')
+            self.parameters = tomlkit.load(fp)["parameters"]
+        print("")
 
     def _create_config_file(self):
-
-        data_path = os.path.join(os.path.dirname(self.config_path), 'data')
+        data_path = os.path.join(os.path.dirname(self.config_path), "data")
 
         doc = tomlkit.document()
-        doc.add(tomlkit.comment("Spinmouse parameters. If deleted, this file will re-generate with defaults"))
+        doc.add(
+            tomlkit.comment(
+                "Spinmouse parameters. If deleted, this file will re-generate with defaults"
+            )
+        )
         doc.add(tomlkit.nl())
 
         parameters = tomlkit.table()
         parameters.add("save_path", tomlkit.string(data_path, literal=True))
         parameters.add("video_save_framerate", 100)
-        parameters['video_save_framerate'].comment("this does not affect acquisition")
-        parameters.add("default_filename_suffix", tomlkit.string('', literal=True))
+        parameters["video_save_framerate"].comment("this does not affect acquisition")
+        parameters.add("default_filename_suffix", tomlkit.string("", literal=True))
 
         doc.add("parameters", parameters)
 
@@ -51,21 +54,25 @@ class configFile():
         print(f"Config file created at {self.config_path}")
 
 
-class waitAnimation():
+class waitAnimation:
     def __init__(self, message):
         self.message = message
         self.animation = "|/-\\"
         self.idx = 0
 
     def print(self):
-        print(self.message + " {}".format(self.animation[self.idx % len(self.animation)]), end="\r")
+        print(
+            self.message + " {}".format(self.animation[self.idx % len(self.animation)]),
+            end="\r",
+        )
         self.idx += 1
 
 
-class FrameCounter():
+class FrameCounter:
     """
     This class tracks acquired, buffered, and dropped frames.
     """
+
     def __init__(self):
         self.acquired = 0
         self.buffered = 0
@@ -78,7 +85,7 @@ class FrameCounter():
         self.acquired += 1
         self.buffered = queue_len
 
-        if self.last_frameid == None:
+        if self.last_frameid is None:
             self.last_frameid = frameid
         else:
             self.dropped += frameid - self.last_frameid - 1
@@ -86,19 +93,19 @@ class FrameCounter():
 
     # Call this method to display the current counter values
     def print(self):
-        acquired = str(self.acquired).rjust(12, ' ')
-        buffered = str(self.buffered).rjust(12, ' ')
-        dropped = str(self.dropped).rjust(12, ' ')
+        acquired = str(self.acquired).rjust(12, " ")
+        buffered = str(self.buffered).rjust(12, " ")
+        dropped = str(self.dropped).rjust(12, " ")
         print(f"Acquired: {acquired}  |  Buffered: {buffered}  |  Dropped: {dropped}")
 
 
-def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
+def save_images(acquisition_complete_event, file_name, images_queue, nodemap, video_save_framerate):
     """
     This function prepares, saves, and cleans up an AVI video from a deque of images,
     saves timestamp data to CSV, and tracks acquired/buffered/dropped frames.
 
     Uses OpenCV + FFMPEG to save video.
-    
+
     :param stop_event (type: threading.Event): Thread safe boolean to signal acquisition stop
     :param nodemap (type: INodeMap): Device nodemap.
     :param file_name (type: Str): Base experiment file name
@@ -111,17 +118,24 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
         result = True
 
         # get image height/width
-        node_height = PySpin.CIntegerPtr(nodemap.GetNode('Height')).GetValue()
-        node_width = PySpin.CIntegerPtr(nodemap.GetNode('Width')).GetValue()
+        node_height = PySpin.CIntegerPtr(nodemap.GetNode("Height")).GetValue()
+        node_width = PySpin.CIntegerPtr(nodemap.GetNode("Width")).GetValue()
         print(node_height)
         print(node_width)
 
         # open AVI with unique filename
         frame_size = (node_width, node_height)
-        video_recorder = cv2.VideoWriter(file_name+".avi", cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc('M','J','P','G'), config.parameters['video_save_framerate'], frame_size, 0)
+        video_recorder = cv2.VideoWriter(
+            file_name + ".avi",
+            cv2.CAP_FFMPEG,
+            cv2.VideoWriter_fourcc("M", "J", "P", "G"),
+            video_save_framerate,
+            frame_size,
+            0,
+        )
 
         # open log csv
-        logfile = open(file_name + '_timestamps.csv', 'w', newline='')
+        logfile = open(file_name + "_timestamps.csv", "w", newline="")
         log_writer = csv.writer(logfile)
 
         # Initialize frame counter
@@ -156,7 +170,7 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
         video_recorder.release()
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print("Error: %s" % ex)
         return False
 
     return result
@@ -164,7 +178,7 @@ def save_images(acquisition_complete_event, file_name, images_queue, nodemap):
 
 def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
     """
-    
+
     :param cam (type: CameraPtr): Camera to acquire images from.
     :param nodemap (type: INodeMap): Device nodemap.
     :param stop_event (type: threading.Event): Thread safe boolean to signal acquisition stop
@@ -173,11 +187,13 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
     :return (type: bool): True if successful, False otherwise.
     """
 
-    acquisition_message = waitAnimation("Acquiring: waiting for images...(press 'p' to end)")
+    acquisition_message = waitAnimation(
+        "Acquiring: waiting for images...(press 'p' to end)"
+    )
 
     frames_acquired = 0
-    
-    print('*** IMAGE ACQUISITION ***\n')
+
+    print("*** IMAGE ACQUISITION ***\n")
     try:
         result = True
 
@@ -189,17 +205,22 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
                 image_result = cam.GetNextImage(100)
 
                 if image_result.IsIncomplete():
-                    print('Image incomplete with image status %d...' % image_result.GetImageStatus())
+                    print(
+                        "Image incomplete with image status %d..."
+                        % image_result.GetImageStatus()
+                    )
 
                 else:
                     # put images in threadsafe collection
-                    images_queue.append(image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR))
-                    
+                    images_queue.append(
+                        image_result.Convert(PySpin.PixelFormat_Mono8, PySpin.HQ_LINEAR)
+                    )
+
                     image_result.Release()
 
                     frames_acquired += 1
 
-            except:
+            except PySpin.SpinnakerException:
                 acquisition_message.print()
 
             if keyboard.is_pressed("p"):
@@ -211,7 +232,7 @@ def acquire_images(acquisition_complete_event, cam, nodemap, images_queue):
         cam.EndAcquisition()
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print("Error: %s" % ex)
         result = False
 
     return result
@@ -231,7 +252,7 @@ def configure_chunk_data(nodemap):
     """
     try:
         result = True
-        print('\n*** CONFIGURING CHUNK DATA ***\n')
+        print("\n*** CONFIGURING CHUNK DATA ***\n")
 
         # Activate chunk mode
         #
@@ -239,12 +260,14 @@ def configure_chunk_data(nodemap):
         # Once enabled, chunk data will be available at the end of the payload
         # of every image captured until it is disabled. Chunk data can also be
         # retrieved from the nodemap.
-        chunk_mode_active = PySpin.CBooleanPtr(nodemap.GetNode('ChunkModeActive'))
+        chunk_mode_active = PySpin.CBooleanPtr(nodemap.GetNode("ChunkModeActive"))
 
-        if PySpin.IsAvailable(chunk_mode_active) and PySpin.IsWritable(chunk_mode_active):
+        if PySpin.IsAvailable(chunk_mode_active) and PySpin.IsWritable(
+            chunk_mode_active
+        ):
             chunk_mode_active.SetValue(True)
 
-        print('Chunk mode activated...')
+        print("Chunk mode activated...")
 
         # Enable all types of chunk data
         #
@@ -258,10 +281,12 @@ def configure_chunk_data(nodemap):
         # In this example, all chunk data is enabled, so these steps are
         # performed in a loop. Once this is complete, chunk mode still needs to
         # be activated.
-        chunk_selector = PySpin.CEnumerationPtr(nodemap.GetNode('ChunkSelector'))
+        chunk_selector = PySpin.CEnumerationPtr(nodemap.GetNode("ChunkSelector"))
 
-        if not PySpin.IsAvailable(chunk_selector) or not PySpin.IsReadable(chunk_selector):
-            print('Unable to retrieve chunk selector. Aborting...\n')
+        if not PySpin.IsAvailable(chunk_selector) or not PySpin.IsReadable(
+            chunk_selector
+        ):
+            print("Unable to retrieve chunk selector. Aborting...\n")
             return False
 
         # Retrieve entries
@@ -272,42 +297,46 @@ def configure_chunk_data(nodemap):
         # no parameters and gives us a list of INodes. Since we want these INodes
         # to be of type CEnumEntryPtr, we can use a list comprehension to
         # transform all of our collected INodes into CEnumEntryPtrs at once.
-        entries = [PySpin.CEnumEntryPtr(chunk_selector_entry) for chunk_selector_entry in chunk_selector.GetEntries()]
+        entries = [
+            PySpin.CEnumEntryPtr(chunk_selector_entry)
+            for chunk_selector_entry in chunk_selector.GetEntries()
+        ]
 
-        print('Enabling entries...')
+        print("Enabling entries...")
 
         # Iterate through our list and select each entry node to enable
         for chunk_selector_entry in entries:
             # Go to next node if problem occurs
-            if not PySpin.IsAvailable(chunk_selector_entry) or not PySpin.IsReadable(chunk_selector_entry):
+            if not PySpin.IsAvailable(chunk_selector_entry) or not PySpin.IsReadable(
+                chunk_selector_entry
+            ):
                 continue
 
             chunk_selector.SetIntValue(chunk_selector_entry.GetValue())
 
-            chunk_str = '\t {}:'.format(chunk_selector_entry.GetSymbolic())
+            chunk_str = "\t {}:".format(chunk_selector_entry.GetSymbolic())
 
             # Retrieve corresponding boolean
-            chunk_enable = PySpin.CBooleanPtr(nodemap.GetNode('ChunkEnable'))
+            chunk_enable = PySpin.CBooleanPtr(nodemap.GetNode("ChunkEnable"))
 
             # Enable the boolean, thus enabling the corresponding chunk data
             if not PySpin.IsAvailable(chunk_enable):
-                print('{} not available'.format(chunk_str))
+                print("{} not available".format(chunk_str))
                 result = False
             elif chunk_enable.GetValue() is True:
-                print('{} enabled'.format(chunk_str))
+                print("{} enabled".format(chunk_str))
             elif PySpin.IsWritable(chunk_enable):
                 chunk_enable.SetValue(True)
-                print('{} enabled'.format(chunk_str))
+                print("{} enabled".format(chunk_str))
             else:
-                print('{} not writable'.format(chunk_str))
+                print("{} not writable".format(chunk_str))
                 result = False
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print("Error: %s" % ex)
         result = False
 
     return result
-
 
 
 def get_id_timestamp_from_chunk_data(image):
@@ -322,24 +351,15 @@ def get_id_timestamp_from_chunk_data(image):
     :rtype: bool
     """
     try:
-##        result = True
-        
-        # Retrieve chunk data from image
         chunk_data = image.GetChunkData()
 
-        # Retrieve frame ID
         frame_id = chunk_data.GetFrameID()
-##        print('\tFrame ID: {}'.format(frame_id))
-
-        # Retrieve timestamp
         timestamp = chunk_data.GetTimestamp()
-##        print('\tTimestamp: {}'.format(timestamp))
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
-##        result = False
-    return frame_id, timestamp
+        print("Error: %s" % ex)
 
+    return frame_id, timestamp
 
 
 def disable_chunk_data(nodemap):
@@ -355,10 +375,10 @@ def disable_chunk_data(nodemap):
         result = True
 
         # Retrieve the selector node
-        chunk_selector = PySpin.CEnumerationPtr(nodemap.GetNode('ChunkSelector'))
+        chunk_selector = PySpin.CEnumerationPtr(nodemap.GetNode("ChunkSelector"))
 
         if not PySpin.IsAvailable(chunk_selector) or not PySpin.IsReadable(chunk_selector):
-            print('Unable to retrieve chunk selector. Aborting...\n')
+            print("Unable to retrieve chunk selector. Aborting...\n")
             return False
 
         # Retrieve entries
@@ -371,7 +391,7 @@ def disable_chunk_data(nodemap):
         # transform all of our collected INodes into CEnumEntryPtrs at once.
         entries = [PySpin.CEnumEntryPtr(chunk_selector_entry) for chunk_selector_entry in chunk_selector.GetEntries()]
 
-        print('Disabling entries...')
+        print("Disabling entries...")
 
         for chunk_selector_entry in entries:
             # Go to next node if problem occurs
@@ -380,41 +400,39 @@ def disable_chunk_data(nodemap):
 
             chunk_selector.SetIntValue(chunk_selector_entry.GetValue())
 
-            chunk_symbolic_form = '\t {}:'.format(chunk_selector_entry.GetSymbolic())
+            chunk_symbolic_form = "\t {}:".format(chunk_selector_entry.GetSymbolic())
 
             # Retrieve corresponding boolean
-            chunk_enable = PySpin.CBooleanPtr(nodemap.GetNode('ChunkEnable'))
+            chunk_enable = PySpin.CBooleanPtr(nodemap.GetNode("ChunkEnable"))
 
             # Disable the boolean, thus disabling the corresponding chunk data
             if not PySpin.IsAvailable(chunk_enable):
-                print('{} not available'.format(chunk_symbolic_form))
+                print("{} not available".format(chunk_symbolic_form))
                 result = False
             elif not chunk_enable.GetValue():
-                print('{} disabled'.format(chunk_symbolic_form))
+                print("{} disabled".format(chunk_symbolic_form))
             elif PySpin.IsWritable(chunk_enable):
                 chunk_enable.SetValue(False)
-                print('{} disabled'.format(chunk_symbolic_form))
+                print("{} disabled".format(chunk_symbolic_form))
             else:
-                print('{} not writable'.format(chunk_symbolic_form))
+                print("{} not writable".format(chunk_symbolic_form))
 
         # Deactivate Chunk Mode
-        chunk_mode_active = PySpin.CBooleanPtr(nodemap.GetNode('ChunkModeActive'))
+        chunk_mode_active = PySpin.CBooleanPtr(nodemap.GetNode("ChunkModeActive"))
 
         if not PySpin.IsAvailable(chunk_mode_active) or not PySpin.IsWritable(chunk_mode_active):
-            print('Unable to deactivate chunk mode. Aborting...\n')
+            print("Unable to deactivate chunk mode. Aborting...\n")
             return False
 
         chunk_mode_active.SetValue(False)
 
-        print('Chunk mode deactivated...')
+        print("Chunk mode deactivated...")
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print("Error: %s" % ex)
         result = False
 
     return result
-
-
 
 
 def print_device_info(nodemap):
@@ -428,30 +446,37 @@ def print_device_info(nodemap):
     :return: True if successful, False otherwise.
     :rtype: bool
     """
-    print('\n*** DEVICE INFORMATION ***\n')
+    print("\n*** DEVICE INFORMATION ***\n")
 
     try:
         result = True
-        node_device_information = PySpin.CCategoryPtr(nodemap.GetNode('DeviceInformation'))
+        node_device_information = PySpin.CCategoryPtr(
+            nodemap.GetNode("DeviceInformation")
+        )
 
         if PySpin.IsAvailable(node_device_information) and PySpin.IsReadable(node_device_information):
             features = node_device_information.GetFeatures()
             for feature in features:
                 node_feature = PySpin.CValuePtr(feature)
-                print('%s: %s' % (node_feature.GetName(),
-                                  node_feature.ToString() if PySpin.IsReadable(node_feature) else 'Node not readable'))
+                print(
+                    "%s: %s"
+                    % (
+                        node_feature.GetName(),
+                        node_feature.ToString() if PySpin.IsReadable(node_feature) else "Node not readable",
+                    )
+                )
 
         else:
-            print('Device control information not available.')
+            print("Device control information not available.")
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print("Error: %s" % ex)
         return False
 
     return result
 
 
-def run_single_camera(cam,file_name):
+def run_single_camera(cam, file_name, config):
     """
     This function acts as the body of the example; please see NodeMapInfo example
     for more in-depth comments on setting up cameras.
@@ -482,16 +507,21 @@ def run_single_camera(cam,file_name):
         if configure_chunk_data(nodemap) is False:
             return False
 
-        # Create infinitely large image buffer queue
-        # images_queue = queue.Queue(maxsize=0)
+        # infinitely large threadsafe image buffer
         images_queue = deque([])
 
         # Create an thread event to signal when acquisition is complete
         acquisition_complete_event = threading.Event()
 
         # Create threads for acquiring and saving images
-        acquire_images_thread = threading.Thread(target=acquire_images, args=[acquisition_complete_event, cam, nodemap, images_queue])
-        save_images_thread = threading.Thread(target=save_images, args=[acquisition_complete_event, file_name, images_queue, nodemap])
+        acquire_images_thread = threading.Thread(
+            target=acquire_images,
+            args=[acquisition_complete_event, cam, nodemap, images_queue],
+        )
+        save_images_thread = threading.Thread(
+            target=save_images,
+            args=[acquisition_complete_event, file_name, images_queue, nodemap, config.parameters["video_save_framerate"]],
+        )
         acquire_images_thread.start()
         save_images_thread.start()
         acquire_images_thread.join()
@@ -505,11 +535,10 @@ def run_single_camera(cam,file_name):
         cam.DeInit()
 
     except PySpin.SpinnakerException as ex:
-        print('Error: %s' % ex)
+        print("Error: %s" % ex)
         result = False
 
     return result
-
 
 
 def main():
@@ -522,74 +551,71 @@ def main():
     result = True
 
     # Load spinmouse_config.toml
-    print('')
+    print("")
     root_dir = os.path.dirname(os.path.abspath(__file__))
     config = configFile(root_dir)
 
+    if not os.path.exists(config.parameters['save_path']):
+        os.makedirs(config.parameters['save_path'])
+
     # Get base session name
-    keyboard.write("{date}_01_".format(date = date.today().strftime("%Y%m%d")))
+    keyboard.write("{date}_01_".format(date=date.today().strftime("%Y%m%d")))
     session_name = input("Enter filename (e.g., 20230217_01_DT000): ")
 
     # Get camera function
-    keyboard.write(config.parameters['default_filename_suffix'])
-    camera_function_name = input("What is being recorded? (this will be appended to name): ")
+    keyboard.write(config.parameters["default_filename_suffix"])
+    camera_function_name = input("Filename suffix (e.g., 'BodyCam'): ")
 
     file_name = session_name + "_" + camera_function_name
-    file_name = os.path.join(config.parameters['save_path'], file_name)
-    
+    file_name = os.path.join(config.parameters["save_path"], file_name)
+
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
 
     # Retrieve list of cameras from the system
     cam_list = system.GetCameras()
     num_cameras = cam_list.GetSize()
-    print('Number of cameras detected:', num_cameras)
+    print("Number of cameras detected:", num_cameras)
 
-    # TODO: Add something to setup GUI to select from multiple cameras? Or separate GUI?
     # Finish if there are no cameras
     if num_cameras == 0:
         # Clear camera list before releasing system
         cam_list.Clear()
 
-        # Release system instance
         system.ReleaseInstance()
 
-        print('Not enough cameras!')
-        input('Done! Press Enter to exit...')
+        print("Not enough cameras!")
+        input("Done! Press Enter to exit...")
         return False
 
     if num_cameras > 1:
         # Clear camera list before releasing system
         cam_list.Clear()
 
-        # Release system instance
         system.ReleaseInstance()
 
-        print('Too many cameras!')
-        input('Done! Press Enter to exit...')
+        print("Too many cameras!")
+        input("Done! Press Enter to exit...")
         return False
 
-    # Run example on each camera
     for i, cam in enumerate(cam_list):
+        print("Running example for camera %d..." % i)
 
-        print('Running example for camera %d...' % i)
+        result &= run_single_camera(cam, file_name, config)
+        print("Camera %d example complete... \n" % i)
 
-        result &= run_single_camera(cam, file_name)
-        print('Camera %d example complete... \n' % i)
-
-    # Release reference to camera
     del cam
 
     # Clear camera list before releasing system
     cam_list.Clear()
 
-    # Release instance
     system.ReleaseInstance()
 
-    input('Done! Press Enter to exit...')
+    input("Done! Press Enter to exit...")
     return result
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if main():
         sys.exit(0)
     else:
