@@ -41,7 +41,7 @@ class configFile:
         doc.add(tomlkit.nl())
 
         parameters = tomlkit.table()
-        parameters.add("save_path", tomlkit.string(data_path, literal=True))
+        parameters.add("video_save_path", tomlkit.string(data_path, literal=True))
         parameters.add("video_save_framerate", 100)
         parameters["video_save_framerate"].comment("this does not affect acquisition")
         parameters.add("default_filename_suffix", tomlkit.string("", literal=True))
@@ -551,38 +551,48 @@ def main():
     """
     result = True
 
+    # Splash
+    splash_ascii_art = """
+            _                             
+  ___ ___  (_)__  __ _  ___  __ _____ ___ 
+ (_-</ _ \/ / _ \/  ' \/ _ \/ // (_-</ -_)
+/___/ .__/_/_//_/_/_/_/\___/\_,_/___/\__/ 
+   /_/                                                  
+                       """
+
+    print(splash_ascii_art)
+
     # Load spinmouse_config.toml
-    print("")
     root_dir = os.path.dirname(os.path.abspath(__file__))
     config = configFile(root_dir)
 
     if config.config_file_created is True:
-        print("Update spinmouse_config.toml and restart")
+        print("ACTION: Update parameters in spinmouse_config.toml and restart\n")
         input("Press Enter to exit...")
         return False
 
+    # Display config parameters
+    print("[CONFIG PARAMETERS]")
+    _ = [print(f"{key}: {value}") for key,value in config.parameters.items()]
+    print("")
 
     # Check data save location
-    print("Save location: {path}".format(path=config.parameters['save_path']))
-    if not os.path.exists(config.parameters['save_path']):
-        print("Save location does not exist. Please create folder or edit spinmouse_config.toml")
+    if not os.path.exists(config.parameters['video_save_path']):
+        print("ACTION: Save location does not exist. Please create folder or edit spinmouse_config.toml\n")
         input("Press Enter to exit...")
         return False
 
     # Get base session name
     keyboard.write("{date}_01_".format(date=date.today().strftime("%Y%m%d")))
-    session_name = input("Enter filename (e.g., 20230217_01_DT000): ")
+    session_name = input("Enter session name (e.g., 20230217_01_DT000): ")
 
-    # Get camera function
-    keyboard.write(config.parameters["default_filename_suffix"])
-    filename_suffix = input("Filename suffix (e.g., 'BodyCam'): ")
-
-    if len(filename_suffix) == 0:
+    # Add suffix
+    if len(config.parameters["default_filename_suffix"]) == 0:
         file_name = session_name
     else:
-        file_name = session_name + "_" + filename_suffix
+        file_name = session_name + "_" + config.parameters["default_filename_suffix"]
 
-    file_name = os.path.join(config.parameters["save_path"], file_name)
+    file_name = os.path.join(config.parameters["video_save_path"], file_name)
 
     # Retrieve singleton reference to system object
     system = PySpin.System.GetInstance()
