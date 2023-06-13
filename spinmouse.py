@@ -3,7 +3,9 @@ from src.setup import setup_experiment
 from src.camera import CameraSystem
 from src.acquire import run_experiment_cli, run_experiment_gui
 import os
+import shutil
 import sys
+
 
 
 def main():
@@ -30,6 +32,13 @@ def main():
 
     if config.config_file_is_new is True:
         print("USER ACTION: spinmouse_config.toml is new! Update config parameters and restart\n")
+        input("Press Enter to exit...")
+        return False
+
+    MINIMUM_HD_FREE_SPACE = 10  # GB
+    print(f"Remaining hard drive space: {shutil.disk_usage(config.parameters['data_directory']).free/1024**3:.1f} GB\n")
+    if shutil.disk_usage(config.parameters['data_directory']).free < MINIMUM_HD_FREE_SPACE*1024**3:
+        print(f"USER ACTION: There is less than {MINIMUM_HD_FREE_SPACE} GB of hard disk space remaining. Free up space and restart\n")
         input("Press Enter to exit...")
         return False
 
