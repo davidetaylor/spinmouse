@@ -256,6 +256,7 @@ def save_images(acquisition_complete_event, images_queue, camera_system, config,
         video_recorder.release()
 
         print(f'\nSaved frames: {frame_counter.acquired}  |  Dropped frames: {frame_counter.dropped}')
+        print(f"Saved to {config.parameters['data_directory']}")
 
     except PySpin.SpinnakerException as ex:
         print("Error: %s" % ex)
