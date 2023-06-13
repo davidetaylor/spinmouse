@@ -37,7 +37,7 @@ class SetupGUI:
 
         # initialize GUI components
         self.gui = tk.Tk()
-        self.gui.title("SpinMouse Setup")
+        self.gui.title("SpinMouse: Setup")
 
         # create basic GUI structure
         self.gui_vid_frame = tk.Frame(self.gui, width=700, height=700, bg='grey')
@@ -53,7 +53,7 @@ class SetupGUI:
         # instructions
         self.gui_instructions_label = tk.Label(
             self.gui_controls_frame,
-            text='Click on the video feed to \nre-position the camera view'
+            text='Left click on the video feed to \nre-position the camera view'
             )
         self.gui_instructions_label.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
 

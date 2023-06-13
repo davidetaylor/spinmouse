@@ -280,6 +280,7 @@ class AcquireGui:
         self.camera_system = camera_system
 
         self.gui = tk.Tk()
+        self.gui.title("SpinMouse: Acquisition")
 
         # create basic GUI structure
         self.video_frame = tk.Frame(self.gui, width=650, height=400, bg='grey')
