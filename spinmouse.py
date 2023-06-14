@@ -51,6 +51,12 @@ def main():
             print("\n\nExperiment setup canceled: exiting system\n")
             return False
 
+        if os.path.isfile(config.parameters['file_path'] + '.avi'):
+            print(f"WARNING: This video file already exists {config.parameters['file_path']}.avi")
+            user_input = input('Do you want to overwrite?  (y/n): ')
+            if user_input.lower() != 'y':
+                return False
+
         # TODO: these functions do not return exit status
         if config.parameters['use_acquisition_gui']:
             run_experiment_gui(camera_system, config)
